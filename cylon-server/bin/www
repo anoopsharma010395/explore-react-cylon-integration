@@ -7,7 +7,7 @@
 var app = require('../app');
 var debug = require('debug')('cylon-server:server');
 var http = require('http');
-
+var openrobot = require('../robots/open-robot')
 /**
  * Get port from environment and store in Express.
  */
@@ -20,6 +20,27 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var io = require('socket.io')(server,{
+  cors: {
+    origin: '*',
+  }
+});
+
+io.on("connection", socket => {
+  console.log("New client connected"), setInterval(
+    () => getFrameAndEmit(socket),
+    10
+  );
+  socket.on("disconnect", () => console.log("Client disconnected"));
+})
+
+const getFrameAndEmit= (socket)=>{
+  try {
+    socket.emit("frame", openrobot.frame);
+  } catch (error) {
+    console.error(`Error: ${error.code}`);
+  }
+}
 
 /**
  * Listen on provided port, on all network interfaces.
