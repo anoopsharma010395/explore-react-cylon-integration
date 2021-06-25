@@ -1,84 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { Button } from 'react-bootstrap';
+import socketIOClient from 'socket.io-client';
 import './App.css';
-
+ const ENDPOINT = "http://127.0.0.1:9000"
+ 
 function App() {
-  const [apiResponse, setApiResponse] = useState('');
-  const setLEDConfiguration = () => {
-    fetch('http://localhost:9000/cylonRoute/setLedRobotConfiguration', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        // Change the port to the correct port for your Arduino.
-        connections: {
-          arduino: { adaptor: 'firmata', port: '/dev/ttyACM0' },
-        },
-        devices: {
-          led: { driver: 'led', pin: 13 },
-        },
+
+  const [imageUrl, setImageUrl] = useState('');
+  const [camButtonDisabled, setcamButtonDisabled] = useState(false);
+  const [buttonDisabled, setButtonDisabled] = useState(false);
+  const [recorderChunk, setRecorderChunk] = useState([]);
+
+  useEffect(() => {
+    try {
+      Notification.requestPermission().then(function(result) {
+        console.log(result);
       })
-    })
-      .then((res) => res.text())
-      .then((res) => setApiResponse(res));
-  };
-  const startLED = () => {
-    fetch('http://localhost:9000/cylonRoute/startLED')
-      .then((res) => res.text())
-      .then((res) => setApiResponse(res));
-  };
-  const stopLED = () => {
-    fetch('http://localhost:9000/cylonRoute/stopLED')
-      .then((res) => res.text())
-      .then((res) => setApiResponse(res));
-  };
-  const setopencvRobotConfiguration = () => {
-    fetch('http://localhost:9000/cylonRoute/setopencvRobotConfiguration')
-      .then((res) => res.text())
-      .then((res) => setApiResponse(res));
-  };
-  const startopencv = () => {
-    fetch('http://localhost:9000/cylonRoute/startopencv')
-      .then((res) => res.text())
-      .then((res) => setApiResponse(res));
-  };
-
+      const socket = socketIOClient(ENDPOINT);
+      socket.on("frame", (data) => {
+        console.log(data)
+        if(data) {
+          const url = `data:image/jpeg;base64,${data}`
+          setImageUrl(url);
+        }
+      });
+    }
+    catch(err) {
+      console.log(err);
+    }
+  }, []);
   
-  var recordedChunks=[];
-  var isRecording = false;
+  /* Starts the webcam */
+  const startWebCam = () => {
+    fetch('http://localhost:9000/cylonRoute/startWebCam')
+      .then((res) => {
+        setcamButtonDisabled(true);
+        res.text();
+      })
+  };
 
-   function handleDataAvailable(event) {
-      if (event.data.size > 0) {
-        recordedChunks.push(event.data);
-        isRecording = false
-        download();
-      } else {
-        // ...
+  /* Stops the webcam */
+  const stopWebCam = () => {
+    fetch('http://localhost:9000/cylonRoute/stopWebCam')
+      .then((res) => {
+        setcamButtonDisabled(false);
+        res.text()
       }
-    }
-  function download(){
-      var blob = new Blob(recordedChunks, {
-      type: "video/mov"
-    });
-  
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    document.body.appendChild(a);
-    a.style = "display: none";
-    a.href = url;
-    var d = new Date();
-    var n = d.toUTCString();
-    a.download = n+".mov";
-    a.click();
-    window.URL.revokeObjectURL(url);
-    recordedChunks = []
-    //this.showNotification()
-    }
+      );
+  };
+
+  /* Screen recorder logic starts */
+  //var recordedChunks=[];
   
 
-  async function getStream() {
+  /* Starts Screen Recording */
+  async function startRecording() {
     const displayOptions= 
     {
       video: {
@@ -89,31 +65,65 @@ function App() {
           noiseSuppression: true,
           sampleRate: 44100
         }
-      }
+    }
     const options= { mimeType: "video/webm; codecs=vp9" }
-    var isRecording;
       try {
-  
           const stream =  await navigator.mediaDevices.getDisplayMedia(displayOptions);
           const mediaRecorder = new MediaRecorder(stream, options);
           mediaRecorder.ondataavailable = handleDataAvailable;
           mediaRecorder.start();
-          isRecording = true
+          setButtonDisabled(true);
         } catch(err) {
-          isRecording = false
-          alert(err);
+          setButtonDisabled(true);
+          console.log(err);
         }
   }
 
+  /* Manages recorded chunks of data */
+  function handleDataAvailable(event) {
+    let temp = recorderChunk;
+    if (event.data.size > 0) {
+      temp.push(event.data);
+      setRecorderChunk(temp);
+      setButtonDisabled(false);
+      download();
+    }
+  }
+
+  /* Download the recorded data */
+  function download(){
+      var blob = new Blob(recorderChunk, {
+      type: "video/mov"
+    });
+
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    document.body.appendChild(a);
+    a.style = "display: none";
+    a.href = url;
+    var d = new Date();
+    var n = d.toUTCString();
+    a.download = n+".mov";
+    a.click();
+    window.URL.revokeObjectURL(url);
+    setRecorderChunk([]);
+  }
+  /* Screen recorder logic ends */
+
   return (
     <div className='App'>
-      <Button variant='primary' onClick={setopencvRobotConfiguration}>
-        Configure opencv
-      </Button>
-      <Button variant='success' onClick={getStream}>
-        Start recording
-      </Button>
-      <p className='App-intro'>{apiResponse}</p>
+      <div className="m-t"><img id="videoImage" alt="video" className="postion-bottom" src={imageUrl} width="300px" height="300px"/></div>
+      <div className="m-t">
+        <Button variant='primary' onClick={startWebCam} disabled={camButtonDisabled}>
+          Start Camera
+        </Button>
+        <Button variant='success' onClick={startRecording} disabled={buttonDisabled}>
+          Start Screen Recording
+        </Button>
+        <Button variant='primary' onClick={stopWebCam} disabled={!camButtonDisabled}>
+          Stop Camera
+        </Button>
+      </div>
     </div>
   );
 }
