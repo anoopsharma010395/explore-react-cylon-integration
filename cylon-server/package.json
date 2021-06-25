@@ -12,12 +12,15 @@
     "cylon-firmata": "^0.24.0",
     "cylon-gpio": "^0.30.1",
     "cylon-i2c": "^0.26.1",
+    "cylon-opencv": "0.15.0",
     "debug": "~2.6.9",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
     "morgan": "~1.9.1",
     "nodemon": "^2.0.7",
-    "cylon-opencv": "0.15.0"
+    "opencv-build": "^0.1.9",
+    "opencv4nodejs-prebuilt": "^5.3.1",
+    "socket.io": "^4.1.2"
   }
 }
