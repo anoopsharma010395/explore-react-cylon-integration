@@ -1,78 +1,40 @@
-const cylon = require('cylon');
-const cylonOpencv = require('cylon-opencv');
-
-
+const cv2 = require('opencv4nodejs-prebuilt')
 
 class OpenRobot {
   constructor() {
-    this.robot = null;
-  }
-  setOpenCvRobotConfiguration() {
-    this.robot = cylon
-      .robot({
-        // Change the port to the correct port for your Arduino.
-        connections: {
-            opencv: { adaptor: 'opencv' }
-          },
-          devices: {
-            window: { driver: 'window' },
-            camera: {
-              driver: 'camera',
-              camera: 0,
-              haarcascade: '/Users/anoop.sharma/Desktop/Web applications/cylon/new-app/explore-react-cylon-integration/cylon-server/node_modules/cylon-opencv/examples/display_camera/haarcascade_frontalface_alt.xml'
-            }
-          },
-      })
-      .start();
-      this.startopencv();
+    this.frame = null;
+    this.Vcap=null;
+    this.myInterval=null;
   }
 
- 
-  startopencv() {
-      var self = this;
-      console.log('The camera is ready!' +  JSON.stringify(this.robot.devices.camera))
-        this.robot.devices.camera.once('cameraReady', function() {
-        console.log('The camera is ready!')
-  
-        // We listen for frame ready event, when triggered
-        // we display the frame/image passed as an argument
-        // and we tell the window to wait 40 milliseconds
-        var frameSelf = self;
-        //console.log('started opencv')
-        self.robot.devices.camera.on('frameReady', function(err, im) {
+  startWebCam() {
+    var self = this;
+    const FPS = 100;
+    this.Vcap = new cv2.VideoCapture(0);
+    this.Vcap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    this.Vcap.set(cv2.CAP_PROP_FRAME_WIDTH, 300);
+    this.Vcap.set(cv2.CAP_PROP_FRAME_HEIGHT, 300);
 
-          //console.log("FRAMEREADY!");
-          //console.log(frameSelf.robot.devices.window)
-          //console.log("FRAMEREADY!");
-
-          console.log("frameready!");
-
-          //console.log(im.read());
-
-          console.log("frameready!");
-          frameSelf.robot.devices.window.show(im, 400);
-        });
-  
-        // Here we have two options to start reading frames from
-        // the camera feed.
-        // 1. As fast as possible triggering the next frame read
-        //    in the listener for frameReady, if you need video
-        //    as smooth as possible uncomment #my.camera.readFrame()
-        //    in the listener above and the one below this comment.
-        //
-        // my.camera.readFrame()
-        //
-        // 2. Use an interval of time to try and get aset amount
-        //    of frames per second  (FPS), in the next example
-        //    we are trying to get 1 frame every 50 milliseconds
-        //    (20 FPS).
-        //
-        //every(50, function() { frameSelf.robot.devices.camera.readFrame(); });
-
-        setInterval(function() { frameSelf.robot.devices.camera.readFrame(); }, 5000);
-      });
+    try{
+      this.myInterval =setInterval(() => {
+        const frame = self.Vcap.read();
+          if(!frame.empty){
+            const image = cv2.imencode('.jpg', frame).toString('base64');
+            this.frame = image;
+          }   
+      }, 10);
+    }
+    catch(err) {
+      console.log(err);
+    }
+    
   }
-  
+
+  stopWebCam(){
+    clearInterval(this.myInterval);
+    this.Vcap.release();
+    
+  }
 }
 
 module.exports = new OpenRobot();
